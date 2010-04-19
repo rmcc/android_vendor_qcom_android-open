@@ -90,7 +90,7 @@ OSCL_EXPORT_REF bool AndroidSurfaceOutputMsm72xx::initCheck()
         frameSize = (frameWidth * frameHeight * 3) / 2;
 
         // create frame buffer heap
-        sp<MemoryHeapBase> master = new MemoryHeapBase(pmem_adsp, frameSize * kBufferCount);
+        sp<MemoryHeapBase> master = new MemoryHeapBase(pmem_adsp, frameSize * kBufferCount, MemoryHeapBase::NO_CACHING);
         if (master->heapID() < 0) {
             LOGE("Error creating frame buffer heap");
             return false;

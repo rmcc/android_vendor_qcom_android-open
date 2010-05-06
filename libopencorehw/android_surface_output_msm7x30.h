@@ -81,6 +81,9 @@ private:
     sp<Overlay>                 mOverlay;
     uint32                      mFd;
 
+    void initOverlay();
+    void initSurface();
+
         //Average FPS profiling
     virtual void AverageFPSProfiling();
     virtual void AverageFPSPrint();

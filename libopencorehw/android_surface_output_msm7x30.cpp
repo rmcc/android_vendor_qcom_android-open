@@ -75,6 +75,70 @@ OSCL_EXPORT_REF bool AndroidSurfaceOutputMsm7x30::initCheck()
     // reset flags in case display format changes in the middle of a stream
     resetVideoParameterFlags();
 
+    if(iVideoSubFormat == PVMF_MIME_YUV420_PACKEDSEMIPLANAR_TILE) {
+        mUseOverlay = false;
+        initSurface();
+    }
+    else {
+        mUseOverlay = true;
+        initOverlay();
+    }
+
+    return mInitialized;
+}
+
+void AndroidSurfaceOutputMsm7x30::initSurface()
+{
+    // copy parameters in case we need to adjust them
+    int displayWidth = iVideoDisplayWidth;
+    int displayHeight = iVideoDisplayHeight;
+    int frameWidth = iVideoWidth;
+    int frameHeight = iVideoHeight;
+    int frameSize;
+
+    // MSM72xx hardware codec uses semi-planar format
+    if (iVideoSubFormat == PVMF_MIME_YUV420_PACKEDSEMIPLANAR_TILE) {
+        LOGV("using hardware codec");
+        mHardwareCodec = true;
+    }else {
+        LOGV("using software codec");
+
+        // YUV420 frames are 1.5 bytes/pixel
+        frameSize = (frameWidth * frameHeight * 3) / 2;
+
+        // create frame buffer heap
+        sp<MemoryHeapBase> master = new MemoryHeapBase(pmem_adsp, frameSize * kBufferCount);
+        if (master->heapID() < 0) {
+            LOGE("Error creating frame buffer heap");
+            return;
+        }
+        master->setDevice(pmem);
+        sp<MemoryHeapPmem> heap = new MemoryHeapPmem(master, 0);
+        heap->slap();
+        mBufferHeap = ISurface::BufferHeap(displayWidth, displayHeight, frameWidth, frameHeight, PIXEL_FORMAT_YCbCr_420_SP, heap);
+        master.clear();
+        mSurface->registerBuffers(mBufferHeap);
+
+        // create frame buffers
+        for (int i = 0; i < kBufferCount; i++) {
+            mFrameBuffers[i] = i * frameSize;
+        }
+
+        LOGV("video = %d x %d", displayWidth, displayHeight);
+        LOGV("frame = %d x %d", frameWidth, frameHeight);
+        LOGV("frame #bytes = %d", frameSize);
+
+        // register frame buffers with SurfaceFlinger
+        mFrameBufferIndex = 0;
+    }
+
+    mInitialized = true;
+    LOGV("sendEvent(MEDIA_SET_VIDEO_SIZE, %d, %d)", iVideoDisplayWidth, iVideoDisplayHeight);
+    mPvPlayer->sendEvent(MEDIA_SET_VIDEO_SIZE, iVideoDisplayWidth, iVideoDisplayHeight);
+}
+
+void AndroidSurfaceOutputMsm7x30::initOverlay()
+{
     // copy parameters in case we need to adjust them
     int displayWidth = iVideoDisplayWidth;
     int displayHeight = iVideoDisplayHeight;
@@ -93,7 +157,7 @@ OSCL_EXPORT_REF bool AndroidSurfaceOutputMsm7x30::initCheck()
         if (mOverlay  == 0){
              mUseOverlay = false;
              LOGE("Create overlay failed\n");
-             return false;
+             return;
         }else {
              LOGV("Create overlay successful\n");
              mFd = 0;
@@ -110,7 +174,7 @@ OSCL_EXPORT_REF bool AndroidSurfaceOutputMsm7x30::initCheck()
         sp<MemoryHeapBase> master = new MemoryHeapBase(pmem_adsp, frameSize * kBufferCount);
         if (master->heapID() < 0) {
             LOGE("Error creating frame buffer heap");
-            return false;
+            return;
         }
         master->setDevice(pmem);
         mHeapPmem = new MemoryHeapPmem(master, 0);
@@ -129,7 +193,7 @@ OSCL_EXPORT_REF bool AndroidSurfaceOutputMsm7x30::initCheck()
         if (mOverlay  == 0){
              mUseOverlay = false;
              LOGE("Create overlay failed\n");
-             return false;
+             return;
         }else {
              LOGV("Create overlay successful\n");
              mFd = mHeapPmem->heapID();
@@ -148,7 +212,6 @@ OSCL_EXPORT_REF bool AndroidSurfaceOutputMsm7x30::initCheck()
     mInitialized = true;
     LOGV("sendEvent(MEDIA_SET_VIDEO_SIZE, %d, %d)", iVideoDisplayWidth, iVideoDisplayHeight);
     mPvPlayer->sendEvent(MEDIA_SET_VIDEO_SIZE, iVideoDisplayWidth, iVideoDisplayHeight);
-    return mInitialized;
 }
 
 PVMFStatus AndroidSurfaceOutputMsm7x30::writeFrameBuf(uint8* aData, uint32 aDataLen, const PvmiMediaXferHeader& data_header_info)
@@ -157,41 +220,83 @@ PVMFStatus AndroidSurfaceOutputMsm7x30::writeFrameBuf(uint8* aData, uint32 aData
     if (mSurface == 0) return PVMFSuccess;
 
     if (mHardwareCodec) {
-       if (mUseOverlay) {
-          if (!mFd){
-               LOGV("writeFrameBuf:: using hardware codec \n");
-               uint32 fd;
-               if (!getPmemFd(data_header_info.private_data_ptr, &fd)) {
-                   LOGE("Error getting pmem heap from private_data_ptr");
-                   return PVMFFailure;
-               }
-               sp<MemoryHeapBase> master = (MemoryHeapBase *) fd;
-               master->setDevice(pmem);
-               mHeapPmem = new MemoryHeapPmem(master, 0);
-               mHeapPmem->slap();
-               master.clear();
-               mFd = mHeapPmem->heapID();
-               LOGV("Calling setFd \n");
-               mOverlay->setFd(mFd);
-           }
-           // get pmem offset and post to SurfaceFlinger
-           if (!getOffset(data_header_info.private_data_ptr, &mOffset)) {
-               LOGE("Error getting pmem offset from private_data_ptr");
-               return PVMFFailure;
-           }
-           LOGV(" mOverlay queueBuffer \n");
-           mOverlay->queueBuffer((void *)mOffset);
-       }
+        if (mUseOverlay) {
+            if (!mFd){
+                LOGV("writeFrameBuf:: using hardware codec \n");
+                uint32 fd;
+                if (!getPmemFd(data_header_info.private_data_ptr, &fd)) {
+                    LOGE("Error getting pmem heap from private_data_ptr");
+                    return PVMFFailure;
+                }
+                sp<MemoryHeapBase> master = (MemoryHeapBase *) fd;
+                master->setDevice(pmem);
+                mHeapPmem = new MemoryHeapPmem(master, 0);
+                mHeapPmem->slap();
+                master.clear();
+                mFd = mHeapPmem->heapID();
+                LOGV("Calling setFd \n");
+                mOverlay->setFd(mFd);
+            }
+            // get pmem offset and post to SurfaceFlinger
+            if (!getOffset(data_header_info.private_data_ptr, &mOffset)) {
+                LOGE("Error getting pmem offset from private_data_ptr");
+                return PVMFFailure;
+            }
+            LOGV(" mOverlay queueBuffer \n");
+            mOverlay->queueBuffer((void *)mOffset);
+        }
+        else {
+            // Use ISurface
+            // initialize frame buffer heap
+            if (mBufferHeap.heap == 0) {
+                LOGV("initializing for hardware");
+                LOGV("private data pointer is 0%p\n", data_header_info.private_data_ptr);
+
+                uint32 fd;
+                if (!getPmemFd(data_header_info.private_data_ptr, &fd)) {
+                    LOGE("Error getting pmem heap from private_data_ptr");
+                    return PVMFFailure;
+                }
+
+                // ugly hack to pass an sp<MemoryHeapBase> as an int
+                sp<MemoryHeapBase> master = (MemoryHeapBase *) fd;
+                master->setDevice(pmem);
+
+                // create new reference
+                uint32_t heap_flags = master->getFlags() & MemoryHeapBase::NO_CACHING;
+                sp<MemoryHeapPmem> heap = new MemoryHeapPmem(master, heap_flags);
+                heap->slap();
+
+                // register frame buffers with SurfaceFlinger
+                mBufferHeap = ISurface::BufferHeap(iVideoDisplayWidth, iVideoDisplayHeight,
+                        iVideoWidth, iVideoHeight, PIXEL_FORMAT_YCbCr_420_SP, heap);
+                master.clear();
+                mSurface->registerBuffers(mBufferHeap);
+            }
+
+            // get pmem offset and post to SurfaceFlinger
+            if (!getOffset(data_header_info.private_data_ptr, &mOffset)) {
+                LOGE("Error getting pmem offset from private_data_ptr");
+                return PVMFFailure;
+            }
+            mSurface->postBuffer(mOffset);
+        }
     }else {
         LOGV("writeFrameBuf :: software codec \n");
         // software codec
         if (++mFrameBufferIndex == kBufferCount) mFrameBufferIndex = 0;
         convertFrame(aData, static_cast<uint8*>(mBufferHeap.heap->base()) + mFrameBuffers[mFrameBufferIndex], aDataLen);
-        // post to SurfaceFlinger
-        //mSurface->postBuffer(mFrameBuffers[mFrameBufferIndex]);
+
+        // Post to Overlay if it exists else post to SurfaceFlinger
         if (mUseOverlay){
             LOGV(" mOverlay queueBuffer \n");
             mOverlay->queueBuffer((void*)mFrameBuffers[mFrameBufferIndex]);
+        }else {
+            // Use ISurface
+            if (++mFrameBufferIndex == kBufferCount) mFrameBufferIndex = 0;
+            convertFrame(aData, static_cast<uint8*>(mBufferHeap.heap->base()) + mFrameBuffers[mFrameBufferIndex], aDataLen);
+            // post to SurfaceFlinger
+            mSurface->postBuffer(mFrameBuffers[mFrameBufferIndex]);
         }
     }
 
@@ -209,11 +314,15 @@ void AndroidSurfaceOutputMsm7x30::postLastFrame()
     if ((mSurface == NULL) || (mBufferHeap.heap == NULL)) return;
 
     if(mHardwareCodec) {
-       if (mUseOverlay)
-           mOverlay->queueBuffer((void *)mOffset);
-     }else {
+        if (mUseOverlay)
+            mOverlay->queueBuffer((void *)mOffset);
+        else
+            mSurface->postBuffer(mOffset);
+    }else {
         if (mUseOverlay)
             mOverlay->queueBuffer((void*)mFrameBuffers[mFrameBufferIndex]);
+        else
+            mSurface->postBuffer(mFrameBuffers[mFrameBufferIndex]);
     }
 }
 

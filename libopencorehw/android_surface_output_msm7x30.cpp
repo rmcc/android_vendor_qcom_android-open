@@ -152,6 +152,15 @@ void AndroidSurfaceOutputMsm7x30::initOverlay()
         LOGV("using hardware codec");
         mHardwareCodec = true;
         mUseOverlay = true;
+        /*
+         * When HDMI is off or 720p clip, number of buffers to hold 1
+         */
+        char value[PROPERTY_VALUE_MAX];
+        property_get("hw.hdmiON", value, "0");
+        if (!atoi(value) || (frameWidth == 1280 && frameHeight == 720))
+             mNumberOfFramesToHold = 1;
+        else
+             mNumberOfFramesToHold = 2;
         sp<OverlayRef> ref = mSurface->createOverlay(frameWidth, frameHeight, OVERLAY_FORMAT_YCrCb_420_SP);
         mOverlay = new Overlay(ref);
         if (mOverlay  == 0){
@@ -166,6 +175,10 @@ void AndroidSurfaceOutputMsm7x30::initOverlay()
 
     } else {
         LOGV("using software codec");
+        /*
+         * For software codec use number of buffers to hold 1
+         */
+        mNumberOfFramesToHold = 1;
 
         // YUV420 frames are 1.5 bytes/pixel
         frameSize = (frameWidth * frameHeight * 3) / 2;

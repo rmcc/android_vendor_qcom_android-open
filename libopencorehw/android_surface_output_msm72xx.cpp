@@ -99,7 +99,7 @@ OSCL_EXPORT_REF bool AndroidSurfaceOutputMsm72xx::initCheck()
         sp<MemoryHeapPmem> heap = new MemoryHeapPmem(master, 0);
         heap->slap();
         mBufferHeap = ISurface::BufferHeap(displayWidth, displayHeight, 
-                frameWidth, frameHeight, PIXEL_FORMAT_YCbCr_420_SP, heap);
+                frameWidth, frameHeight, HAL_PIXEL_FORMAT_YCrCb_420_SP, heap);
         master.clear();
         mSurface->registerBuffers(mBufferHeap);
 
@@ -155,7 +155,7 @@ PVMFStatus AndroidSurfaceOutputMsm72xx::writeFrameBuf(uint8* aData, uint32 aData
 
             // register frame buffers with SurfaceFlinger
             mBufferHeap = ISurface::BufferHeap(iVideoDisplayWidth, iVideoDisplayHeight, 
-                    iVideoWidth, iVideoHeight, PIXEL_FORMAT_YCbCr_420_SP, heap);
+                    iVideoWidth, iVideoHeight, HAL_PIXEL_FORMAT_YCrCb_420_SP, heap);
             master.clear();
             mSurface->registerBuffers(mBufferHeap);
         }

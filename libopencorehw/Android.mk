@@ -26,6 +26,7 @@ LOCAL_SHARED_LIBRARIES := \
     libskia \
     libopencore_common \
     libicuuc \
+    libsurfaceflinger_client \
     libopencore_player
 
 LOCAL_MODULE := libopencorehw

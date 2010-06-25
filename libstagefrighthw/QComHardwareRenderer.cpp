@@ -19,7 +19,7 @@
 #include <binder/MemoryHeapBase.h>
 #include <binder/MemoryHeapPmem.h>
 #include <media/stagefright/MediaDebug.h>
-#include <ui/ISurface.h>
+#include <surfaceflinger/ISurface.h>
 
 namespace android {
 
@@ -130,7 +130,7 @@ void QComHardwareRenderer::publishBuffers(uint32_t pmem_fd) {
     ISurface::BufferHeap bufferHeap(
             mDisplayWidth, mDisplayHeight,
             mDecodedWidth, mDecodedHeight,
-            PIXEL_FORMAT_YCbCr_420_SP,
+            HAL_PIXEL_FORMAT_YCrCb_420_SP,
             mMemoryHeap);
 
     status_t err = mISurface->registerBuffers(bufferHeap);

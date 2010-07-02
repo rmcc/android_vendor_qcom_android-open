@@ -115,7 +115,7 @@ void AndroidSurfaceOutputMsm7x30::initSurface()
         master->setDevice(pmem);
         sp<MemoryHeapPmem> heap = new MemoryHeapPmem(master, 0);
         heap->slap();
-        mBufferHeap = ISurface::BufferHeap(displayWidth, displayHeight, frameWidth, frameHeight, PIXEL_FORMAT_YCbCr_420_SP, heap);
+        mBufferHeap = ISurface::BufferHeap(displayWidth, displayHeight, frameWidth, frameHeight, HAL_PIXEL_FORMAT_YCbCr_420_SP, heap);
         master.clear();
         mSurface->registerBuffers(mBufferHeap);
 
@@ -144,6 +144,7 @@ void AndroidSurfaceOutputMsm7x30::initOverlay()
     int displayHeight = iVideoDisplayHeight;
     int frameWidth = iVideoWidth;
     int frameHeight = iVideoHeight;
+    int orientation = ISurface::BufferHeap::ROT_0;
     int frameSize;
     //LOGE("iVideoSubFormat = %d \n", iVideoSubFormat);
 
@@ -161,7 +162,7 @@ void AndroidSurfaceOutputMsm7x30::initOverlay()
              mNumberOfFramesToHold = 1;
         else
              mNumberOfFramesToHold = 2;
-        sp<OverlayRef> ref = mSurface->createOverlay(frameWidth, frameHeight, OVERLAY_FORMAT_YCrCb_420_SP);
+        sp<OverlayRef> ref = mSurface->createOverlay(frameWidth, frameHeight, OVERLAY_FORMAT_YCrCb_420_SP, orientation);
         mOverlay = new Overlay(ref);
         if (mOverlay  == 0){
              mUseOverlay = false;
@@ -193,7 +194,7 @@ void AndroidSurfaceOutputMsm7x30::initOverlay()
         mHeapPmem = new MemoryHeapPmem(master, 0);
         mHeapPmem->slap();
         mBufferHeap = ISurface::BufferHeap(displayWidth, displayHeight,
-                frameWidth, frameHeight, PIXEL_FORMAT_YCbCr_420_SP, mHeapPmem);
+                frameWidth, frameHeight, HAL_PIXEL_FORMAT_YCbCr_420_SP, mHeapPmem);
         master.clear();
         //mSurface->registerBuffers(mBufferHeap);
         // create frame buffers
@@ -201,7 +202,7 @@ void AndroidSurfaceOutputMsm7x30::initOverlay()
             mFrameBuffers[i] = i * frameSize;
         }
         mUseOverlay = true;
-        sp<OverlayRef> ref = mSurface->createOverlay(frameWidth, frameHeight, OVERLAY_FORMAT_YCbCr_420_SP);
+        sp<OverlayRef> ref = mSurface->createOverlay(frameWidth, frameHeight, OVERLAY_FORMAT_YCbCr_420_SP, orientation);
         mOverlay = new Overlay(ref);
         if (mOverlay  == 0){
              mUseOverlay = false;
@@ -282,7 +283,7 @@ PVMFStatus AndroidSurfaceOutputMsm7x30::writeFrameBuf(uint8* aData, uint32 aData
 
                 // register frame buffers with SurfaceFlinger
                 mBufferHeap = ISurface::BufferHeap(iVideoDisplayWidth, iVideoDisplayHeight,
-                        iVideoWidth, iVideoHeight, PIXEL_FORMAT_YCbCr_420_SP, heap);
+                        iVideoWidth, iVideoHeight, HAL_PIXEL_FORMAT_YCbCr_420_SP, heap);
                 master.clear();
                 mSurface->registerBuffers(mBufferHeap);
             }

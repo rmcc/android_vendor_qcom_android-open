@@ -80,7 +80,8 @@ OSCL_EXPORT_REF bool AndroidSurfaceOutputMsm72xx::initCheck()
     int frameSize;
 
     // MSM72xx hardware codec uses semi-planar format
-    if (iVideoSubFormat == PVMF_MIME_YUV420_SEMIPLANAR_YVU) {
+    if ((iVideoSubFormat == PVMF_MIME_YUV420_SEMIPLANAR_YVU) ||
+        (iVideoSubFormat == PVMF_MIME_YUV420_SEMIPLANAR_YVU_INTERLACE)) {
         LOGV("using hardware codec");
         mHardwareCodec = true;
     } else {
@@ -136,7 +137,9 @@ PVMFStatus AndroidSurfaceOutputMsm72xx::writeFrameBuf(uint8* aData, uint32 aData
             LOGV("private data pointer is 0%p\n", data_header_info.private_data_ptr);
 
             // check for correct video format
-            if (iVideoSubFormat != PVMF_MIME_YUV420_SEMIPLANAR_YVU) return PVMFFailure;
+            if ((iVideoSubFormat != PVMF_MIME_YUV420_SEMIPLANAR_YVU) &&
+                (iVideoSubFormat != PVMF_MIME_YUV420_SEMIPLANAR_YVU_INTERLACE))
+                    return PVMFFailure;
 
             uint32 fd;
             if (!getPmemFd(data_header_info.private_data_ptr, &fd)) {
@@ -153,9 +156,18 @@ PVMFStatus AndroidSurfaceOutputMsm72xx::writeFrameBuf(uint8* aData, uint32 aData
             sp<MemoryHeapPmem> heap = new MemoryHeapPmem(master, heap_flags);
             heap->slap();
 
-            // register frame buffers with SurfaceFlinger
-            mBufferHeap = ISurface::BufferHeap(iVideoDisplayWidth, iVideoDisplayHeight, 
-                    iVideoWidth, iVideoHeight, HAL_PIXEL_FORMAT_YCrCb_420_SP, heap);
+            if(iVideoSubFormat == PVMF_MIME_YUV420_SEMIPLANAR_YVU) {
+                // register frame buffers with SurfaceFlinger
+                LOGV("creating buffers for PVMF_MIME_YUV420_SEMIPLANAR_YVU");
+                mBufferHeap = ISurface::BufferHeap(iVideoDisplayWidth, iVideoDisplayHeight,
+                        iVideoWidth, iVideoHeight, HAL_PIXEL_FORMAT_YCrCb_420_SP, heap);
+            } else {
+                // register frame buffers with SurfaceFlinger
+                LOGV("creating buffers for PVMF_MIME_YUV420_SEMIPLANAR_YVU_INTERLACE");
+                mBufferHeap = ISurface::BufferHeap(iVideoDisplayWidth, iVideoDisplayHeight,
+                        iVideoWidth, iVideoHeight, HAL_PIXEL_FORMAT_YCrCb_420_SP_INTERLACE, heap);
+            }
+
             master.clear();
             mSurface->registerBuffers(mBufferHeap);
         }

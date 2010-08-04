@@ -24,6 +24,7 @@
 #include <binder/MemoryHeapPmem.h>
 #include <media/stagefright/MediaDebug.h>
 #include <surfaceflinger/ISurface.h>
+#include <media/stagefright/HardwareAPI.h> //needed for OMX_COLOR_FORMATTYPE
 
 #include <cutils/properties.h>
 #include <sys/time.h>
@@ -66,6 +67,7 @@ typedef struct PLATFORM_PRIVATE_PMEM_INFO
 
 QComHardwareOverlayRenderer::QComHardwareOverlayRenderer(
         const sp<ISurface> &surface,
+        OMX_COLOR_FORMATTYPE colorFormat,
         size_t displayWidth, size_t displayHeight,
         size_t decodedWidth, size_t decodedHeight)
     : mISurface(surface),
@@ -80,6 +82,8 @@ QComHardwareOverlayRenderer::QComHardwareOverlayRenderer(
       mFrameNumber(0),
       mNumFpsSamples(0),
       mLastFrameTime(0) {
+
+    static const int QOMX_COLOR_FormatYUV420PackedSemiPlanar64x32Tile2m8ka = 0x7FA30C03;
     CHECK(mISurface.get() != NULL);
     CHECK(mDecodedWidth > 0);
     CHECK(mDecodedHeight > 0);
@@ -87,8 +91,18 @@ QComHardwareOverlayRenderer::QComHardwareOverlayRenderer(
     char value[PROPERTY_VALUE_MAX];
     property_get("persist.debug.sf.statistics",value,"0");
     if (atoi(value)) mStatistics = true;
+    sp<OverlayRef> ref = NULL;
 
-    sp<OverlayRef> ref = mISurface->createOverlay(decodedWidth, decodedHeight, OVERLAY_FORMAT_YCrCb_420_SP, ISurface::BufferHeap::ROT_0);
+    if (colorFormat == QOMX_COLOR_FormatYUV420PackedSemiPlanar64x32Tile2m8ka)
+        ref = mISurface->createOverlay(decodedWidth, decodedHeight, OVERLAY_FORMAT_YCrCb_420_SP_TILE, ISurface::BufferHeap::ROT_0);
+    else if (colorFormat == OMX_COLOR_FormatYUV420SemiPlanar)
+        ref = mISurface->createOverlay(decodedWidth, decodedHeight, OVERLAY_FORMAT_YCrCb_420_SP, ISurface::BufferHeap::ROT_0);
+    else
+    {
+        LOGE("******unexpected color format %d*******", colorFormat);
+        return;
+    }
+
     mOverlay = new Overlay(ref);
     if (mOverlay  == 0){
          LOGE("Create overlay failed\n");

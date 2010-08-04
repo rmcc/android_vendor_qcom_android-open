@@ -32,13 +32,18 @@ VideoRenderer *createRenderer(
         size_t decodedWidth, size_t decodedHeight) {
     using android::QComHardwareOverlayRenderer;
 
-    if (colorFormat == OMX_COLOR_FormatYUV420SemiPlanar
+
+    static const int QOMX_COLOR_FormatYUV420PackedSemiPlanar64x32Tile2m8ka = 0x7FA30C03;
+
+    if((colorFormat == OMX_COLOR_FormatYUV420SemiPlanar || colorFormat == QOMX_COLOR_FormatYUV420PackedSemiPlanar64x32Tile2m8ka)
         && !strncmp(componentName, "OMX.qcom.video.decoder.", 23)) {
         LOGV("StagefrightSurfaceOutput7x30::createRenderer");
         return new QComHardwareOverlayRenderer(
-                surface, displayWidth, displayHeight,
+                surface, colorFormat,
+                displayWidth, displayHeight,
                 decodedWidth, decodedHeight);
     }
 
+    LOGE("error: StagefrightSurfaceOutput7x30::createRenderer returning NULL!");
     return NULL;
 }

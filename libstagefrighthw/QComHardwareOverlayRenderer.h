@@ -23,6 +23,8 @@
 #include <utils/RefBase.h>
 #include <ui/Overlay.h>
 #include <sys/types.h>
+#include <media/stagefright/HardwareAPI.h> //needed for OMX_COLOR_FORMATTYPE
+
 
 namespace android {
 
@@ -33,6 +35,7 @@ class QComHardwareOverlayRenderer : public VideoRenderer {
 public:
     QComHardwareOverlayRenderer(
             const sp<ISurface> &surface,
+            OMX_COLOR_FORMATTYPE colorFormat,
             size_t displayWidth, size_t displayHeight,
             size_t decodedWidth, size_t decodedHeight);
 

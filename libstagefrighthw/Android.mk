@@ -7,7 +7,7 @@ LOCAL_SRC_FILES := \
     QComHardwareRenderer.cpp
 endif
 
-ifneq (, $(filter msm7630_surf, $(TARGET_PRODUCT)))
+ifneq (, $(filter msm7630_surf msm8660_surf msm7630_fusion, $(TARGET_PRODUCT)))
 LOCAL_SRC_FILES := \
     stagefright_surface_output_msm7x30.cpp \
     QComHardwareOverlayRenderer.cpp

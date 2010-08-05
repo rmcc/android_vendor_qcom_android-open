@@ -84,6 +84,7 @@ OSCL_EXPORT_REF bool AndroidSurfaceOutputMsm72xx::initCheck()
         (iVideoSubFormat == PVMF_MIME_YUV420_SEMIPLANAR_YVU_INTERLACE)) {
         LOGV("using hardware codec");
         mHardwareCodec = true;
+        mNumberOfFramesToHold = 2;
     } else {
         LOGV("using software codec");
 
